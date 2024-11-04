@@ -19,4 +19,7 @@ func main() {
 
 	var config = autoini.ReadIni[Config]("config.ini")
 	fmt.Println(config)
+
+	var config2 = autoini.ReadIni[Query]("queries/youtube.ini")
+	fmt.Println(config2)
 }

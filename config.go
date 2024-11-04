@@ -5,3 +5,8 @@ type Config struct {
 	DatabaseName          string
 	VersionCollectionName string
 }
+
+func (cfg Config) Optional(key string) bool {
+	// All values are mandatory
+	return false
+}
