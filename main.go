@@ -2,10 +2,17 @@ package main
 
 import (
 	"fmt"
+	"log"
 
-	"github.com/igor-sikachyna/webtrack/webfetch"
+	"webtrack/webfetch"
 )
 
 func main() {
-	fmt.Println("Hello")
+	html, err := webfetch.FetchHtml("https://en.wikipedia.org/wiki/Main_Page")
+
+	if err != nil {
+		log.Fatalln(err)
+	} else {
+		fmt.Println(html)
+	}
 }
