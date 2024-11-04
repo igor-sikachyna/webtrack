@@ -29,6 +29,8 @@ func (q QueryConfig) Optional(key string) bool {
 		return true
 	case "RequestIntervalSeconds":
 		return true
+	case "OnlyIfDifferent":
+		return true
 	default:
 		return false
 	}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -31,6 +30,5 @@ func ExtractValueFromString(data string, before string, after string, anyTag str
 	if end < 0 {
 		return "", errors.New("ending not found")
 	}
-	fmt.Println(begin, begin+end, len(data))
 	return data[begin:(begin + end)], nil
 }

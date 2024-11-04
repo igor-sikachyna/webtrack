@@ -19,6 +19,9 @@ func trackerThread(config QueryConfig, stopRequest chan any, threadStopResponse 
 		default:
 			html, err := fetcher.FetchHtml(config.Url)
 
+			// Time delays properly by taking into account the request time itself
+			var timeBefore = time.Now().UnixMilli()
+
 			if err != nil {
 				// Not a critical issue, just log it
 				fmt.Printf("Failed to query the page %v: %v", config.Url, err)
@@ -30,8 +33,12 @@ func trackerThread(config QueryConfig, stopRequest chan any, threadStopResponse 
 					fmt.Println(res, err)
 				}
 			}
-			time.Sleep(time.Duration(config.RequestIntervalSeconds) * time.Second)
-			return
+
+			var timeAfter = time.Now().UnixMilli()
+			var sleepDuration = int64(config.RequestIntervalSeconds)*1000 - (timeAfter - timeBefore)
+			if sleepDuration > 0 {
+				time.Sleep(time.Duration(sleepDuration) * time.Millisecond)
+			}
 		}
 	}
 }
