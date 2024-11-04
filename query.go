@@ -10,6 +10,7 @@ type QueryConfig struct {
 	ResultType             string
 	RequestBackend         string
 	RequestIntervalSeconds int
+	OnlyIfDifferent        bool
 }
 
 func (q QueryConfig) Optional(key string) bool {
@@ -39,6 +40,8 @@ func (q QueryConfig) DefaultString(key string) string {
 		return "<any>"
 	case "ResultType":
 		return "string"
+	case "RequestBackend":
+		return "go"
 	default:
 		return ""
 	}
@@ -53,8 +56,15 @@ func (q QueryConfig) DefaultInt(key string) int {
 	}
 }
 
+func (q QueryConfig) DefaultBool(key string) bool {
+	return false
+}
+
 func (q *QueryConfig) PostInit() {
 	if q.ResultType != "string" && q.ResultType != "number" {
-		log.Fatalln("Only \"string\" and \"number\" result types are supported")
+		log.Fatalf("Invalid result type %v. Only \"string\" and \"number\" result types are supported", q.ResultType)
+	}
+	if q.RequestBackend != "chrome" && q.RequestBackend != "go" {
+		log.Fatalf("Invalid request backend %v. Only \"chrome\" and \"go\" request backends are supported", q.RequestBackend)
 	}
 }

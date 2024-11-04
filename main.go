@@ -16,7 +16,7 @@ func main() {
 	var dir = "./queries"
 	var stopRequest = make(chan any)
 	var stopResponse = make(chan any)
-	StartTrackers(ListFiles(dir), stopRequest, stopResponse)
+	StartTrackers(ListIniFiles(dir), stopRequest, stopResponse)
 
 	fmt.Println("webtrack initialized. Waiting for termination...")
 	awaitTermination()
