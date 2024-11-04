@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"webtrack/autoini"
 	"webtrack/webfetch"
 )
 
@@ -15,4 +16,7 @@ func main() {
 	} else {
 		fmt.Println(html)
 	}
+
+	var config = autoini.ReadIni[Config]("config.ini")
+	fmt.Println(config)
 }
