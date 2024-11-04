@@ -1,7 +1,6 @@
 package autoini
 
 import (
-	"fmt"
 	"gopkg.in/ini.v1"
 	"log"
 	"reflect"
@@ -23,9 +22,12 @@ type ImplementsDefaultBool interface {
 	DefaultBool(key string) bool
 }
 
+type ImplementsPostInit interface {
+	// Must be implemented as a pointer receiver
+	PostInit()
+}
+
 func getKey(key string, optional bool, cfg *ini.File) (valueInConfig *ini.Key) {
-	fmt.Println(optional)
-	fmt.Println(key)
 	valueExists := cfg.Section("").HasKey(key)
 	if !valueExists {
 		if !optional {
@@ -94,6 +96,11 @@ func ReadIni[T Configurable](path string) (result T) {
 		default:
 			log.Fatalf("Unsupported ini value type: %v", configValueType.Name())
 		}
+	}
+
+	// Convert to a pointer to support pointer receivers
+	if def, ok := any(&result).(ImplementsPostInit); ok {
+		def.PostInit()
 	}
 
 	return

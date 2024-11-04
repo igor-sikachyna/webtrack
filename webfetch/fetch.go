@@ -7,11 +7,22 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-func FetchHtml(url string) (res string, err error) {
-	ctx, cancel := chromedp.NewContext(context.Background())
-	defer cancel()
+type Fetcher struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+}
 
-	err = chromedp.Run(ctx,
+func NewFetcher() (result Fetcher) {
+	result.ctx, result.cancel = chromedp.NewContext(context.Background())
+	return
+}
+
+func (f *Fetcher) Close() {
+	f.cancel()
+}
+
+func (f *Fetcher) FetchHtml(url string) (res string, err error) {
+	err = chromedp.Run(f.ctx,
 		chromedp.Navigate(url),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			node, err := dom.GetDocument().Do(ctx)

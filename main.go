@@ -2,24 +2,39 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"webtrack/autoini"
-	"webtrack/webfetch"
 )
 
 func main() {
-	html, err := webfetch.FetchHtml("https://en.wikipedia.org/wiki/Main_Page")
-
-	if err != nil {
-		log.Fatalln(err)
-	} else {
-		fmt.Println(html)
-	}
-
 	var config = autoini.ReadIni[Config]("config.ini")
 	fmt.Println(config)
 
-	var config2 = autoini.ReadIni[Query]("queries/youtube.ini")
-	fmt.Println(config2)
+	var dir = "./queries"
+	var stopRequest = make(chan any)
+	var stopResponse = make(chan any)
+	StartTrackers(ListFiles(dir), stopRequest, stopResponse)
+
+	fmt.Println("webtrack initialized. Waiting for termination...")
+	awaitTermination()
+	fmt.Println("Gracefully exiting...")
+	close(stopRequest)
+	<-stopResponse
+}
+
+func awaitTermination() {
+	wait := make(chan any)
+
+	go func() {
+		c := make(chan os.Signal, 1) // Need to reserve a buffer of size 1, otherwise the notifier will be blocked
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+		<-c
+		close(wait)
+	}()
+
+	<-wait
 }
