@@ -12,6 +12,7 @@ type QueryConfig struct {
 	RequestBackend         string
 	RequestIntervalSeconds int
 	OnlyIfDifferent        bool
+	OnlyIfUnique           bool
 }
 
 func (q QueryConfig) Optional(key string) bool {
@@ -33,6 +34,8 @@ func (q QueryConfig) Optional(key string) bool {
 	case "RequestIntervalSeconds":
 		return true
 	case "OnlyIfDifferent":
+		return true
+	case "OnlyIfUnique":
 		return true
 	default:
 		return false

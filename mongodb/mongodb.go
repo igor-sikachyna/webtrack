@@ -71,3 +71,48 @@ func (m *MongoDB) Write(collection string, data bson.D) (err error) {
 	_, err = mongoCollection.InsertOne(ctx, data)
 	return err
 }
+
+func (m *MongoDB) GetLastDocument(collection string, sortedKey string) (result bson.D, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	mongoCollection := m.database.Collection(collection)
+	count, err := mongoCollection.CountDocuments(ctx, bson.D{})
+	if err != nil || count == 0 {
+		return result, err
+	}
+	opts := options.FindOne().SetSort(bson.D{{sortedKey, 1}}).SetSkip(count - 1)
+
+	err = mongoCollection.FindOne(ctx, bson.D{}, opts).Decode(&result)
+	if err != nil {
+		return result, err
+	}
+
+	return
+}
+
+func (m *MongoDB) GetAllDocuments(collection string) (result []bson.D, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	mongoCollection := m.database.Collection(collection)
+	cur, err := mongoCollection.Find(ctx, bson.D{})
+	if err != nil {
+		return result, err
+	}
+
+	defer cur.Close(ctx)
+	for cur.Next(ctx) {
+		var document bson.D
+		if err := cur.Decode(&document); err != nil {
+			return result, err
+		}
+		result = append(result, document)
+	}
+
+	if err := cur.Err(); err != nil {
+		return result, err
+	}
+
+	return
+}

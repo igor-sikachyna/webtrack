@@ -12,6 +12,15 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
+func bsonToRaw(value bson.D) (document bson.Raw, err error) {
+	doc, err := bson.Marshal(value)
+	if err != nil {
+		return document, err
+	}
+	err = bson.Unmarshal(doc, &document)
+	return
+}
+
 func floatToNiceString(value float64) (res string) {
 	res = fmt.Sprintf("%f", value)
 	// Trim 0s past the decimal point
@@ -35,6 +44,35 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 	defer close(threadStopResponse)
 
 	var lastValue = ""
+	var allValues = map[string]struct{}{}
+	if config.OnlyIfDifferent {
+		var lastDocumentBson, err = mongo.GetLastDocument(config.Name, "timestamp")
+		if lastDocumentBson != nil {
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			lastDocument, err := bsonToRaw(lastDocumentBson)
+			if err != nil {
+				log.Fatal(err)
+			}
+			lastValue = lastDocument.Lookup("value").StringValue()
+		}
+	}
+	if config.OnlyIfUnique {
+		var documentBsons, err = mongo.GetAllDocuments(config.Name)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, documentBson := range documentBsons {
+			document, err := bsonToRaw(documentBson)
+			if err != nil {
+				log.Fatal(err)
+			}
+			var value = document.Lookup("value").StringValue()
+			allValues[value] = struct{}{}
+		}
+	}
 
 	for {
 		select {
@@ -64,8 +102,15 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 						}
 					}
 
-					// Respect the OnlyIfDifferent requirement
-					if err == nil && (!config.OnlyIfDifferent || lastValue != res) {
+					// Respect the OnlyIfDifferent and OnlyIfUnique requirement
+					var onlyIfDifferentPassed = (!config.OnlyIfDifferent || lastValue != res)
+					var onlyIfUniquePassed = true
+					if config.OnlyIfUnique {
+						_, seen := allValues[res]
+						onlyIfUniquePassed = !seen
+					}
+
+					if err == nil && onlyIfDifferentPassed && onlyIfUniquePassed {
 						var timestamp = time.Now().Unix()
 						err = mongo.Write(config.Name, bson.D{{"timestamp", timestamp}, {"value", res}})
 						if err != nil {
@@ -73,6 +118,10 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 						} else {
 							fmt.Printf("Wrote to MongoDB collection %v at %v\n", config.Name, timestamp)
 							lastValue = res
+
+							if config.OnlyIfUnique {
+								allValues[res] = struct{}{}
+							}
 						}
 					}
 				}
