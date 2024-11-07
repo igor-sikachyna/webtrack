@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+func GetFileNameWithoutExtension(path string) string {
+	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+}
+
 func ListIniFiles(directory string) (result []string) {
 	err := filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
