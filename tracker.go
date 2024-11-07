@@ -8,12 +8,33 @@ import (
 	"webtrack/autoini"
 	"webtrack/mongodb"
 	"webtrack/webfetch"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
+
+func floatToNiceString(value float64) (res string) {
+	res = fmt.Sprintf("%f", value)
+	// Trim 0s past the decimal point
+	var trimEnd = len(res)
+	for i := len(res) - 1; i >= 0; i-- {
+		if res[i] == '0' {
+			trimEnd = i
+		} else if res[i] == '.' {
+			trimEnd = i
+		} else {
+			break
+		}
+	}
+
+	return res[0:trimEnd]
+}
 
 func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan any, threadStopResponse chan any) {
 	var fetcher = webfetch.NewFetcher(config.RequestBackend)
 	defer fetcher.Close()
 	defer close(threadStopResponse)
+
+	var lastValue = ""
 
 	for {
 		select {
@@ -34,10 +55,25 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 					fmt.Printf("Failed to find the requested section on the page %v: %v\n", config.Url, err)
 				} else {
 					if config.ResultType == "number" {
-						res, err := ToNumber(res)
-						fmt.Println(res, err)
-					} else {
-						fmt.Println(res)
+						var number float64
+						number, err = ToNumber(res)
+						if err != nil {
+							fmt.Printf("Failed to convert %v to a number: %v", res, err)
+						} else {
+							res = floatToNiceString(number)
+						}
+					}
+
+					// Respect the OnlyIfDifferent requirement
+					if err == nil && (!config.OnlyIfDifferent || lastValue != res) {
+						var timestamp = time.Now().Unix()
+						err = mongo.Write(config.Name, bson.D{{"timestamp", timestamp}, {"value", res}})
+						if err != nil {
+							fmt.Printf("Failed to write to MongoDB: %v", err)
+						} else {
+							fmt.Printf("Wrote to MongoDB collection %v at %v\n", config.Name, timestamp)
+							lastValue = res
+						}
 					}
 				}
 			}
@@ -71,7 +107,7 @@ func StartTrackers(configs []string, mongo mongodb.MongoDB, stopRequest chan any
 			if err != nil {
 				log.Fatal(err)
 			}
-			go trackerThread(config, stopRequest, threadStopResponse)
+			go trackerThread(config, mongo, stopRequest, threadStopResponse)
 		}
 		// Await all channels to terminate
 		for _, c := range stopChannels {
