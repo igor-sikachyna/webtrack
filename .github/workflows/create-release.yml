@@ -1,0 +1,36 @@
+name: Create release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  run-tests:
+    name: "Create webtrack release"
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+
+      - name: Display Go version
+        run: go version
+
+      - name: Run tests
+        run: go test
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean

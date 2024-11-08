@@ -13,18 +13,17 @@ on:
 
 jobs:
   run-tests:
+    name: "Run Go tests"
 
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: [ '1.23.x' ]
 
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Go ${{ matrix.go-version }}
+
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: '1.23.x'
 
       - name: Display Go version
         run: go version
