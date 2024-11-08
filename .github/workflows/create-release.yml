@@ -1,4 +1,4 @@
-name: Create release
+name: Release
 
 on:
   push:
@@ -37,5 +37,8 @@ jobs:
           distribution: goreleaser
           version: '~> v2'
           args: release --clean
+          files:
+            - config.ini
+            - queries/*.ini
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -16,12 +16,11 @@ To install and run the application run the following set of commands:
 ```sh
 git clone git@github.com:igor-sikachyna/webtrack.git
 cd webtrack
-mv ./config.ini.example ./config.ini
 go install
 go run .
 ```
 
-This will clone the repo, install the dependencies, create the `config.ini` file, and run the application.
+This will clone the repo, install the dependencies, and run the application.
 
 ## How to use
 
