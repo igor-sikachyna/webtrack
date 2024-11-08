@@ -76,6 +76,7 @@ func setBoolKey[T Configurable](result T, key string, value reflect.Value, cfg *
 
 func ReadIni[T Configurable](path string) (result T) {
 	cfg, err := ini.Load(path)
+	// TODO: return an error instead of exiting
 	if err != nil {
 		log.Fatalf("Fail to read file: %v", err)
 	}

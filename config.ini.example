@@ -1,3 +1,3 @@
-mongodbConnectionUrl=mongodb://0.0.0.0:27017
-databaseName=webtrack
-versionCollectionName=version
+MongodbConnectionUrl=mongodb://0.0.0.0:27017
+DatabaseName=webtrack
+VersionCollectionName=_version

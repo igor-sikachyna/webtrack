@@ -59,6 +59,8 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 			lastValue = lastDocument.Lookup("value").StringValue()
 		}
 	}
+
+	// TODO: Use MongoDB to check for uniqueness
 	if config.OnlyIfUnique {
 		var documentBsons, err = mongo.GetAllDocuments(config.Name)
 		if err != nil {
