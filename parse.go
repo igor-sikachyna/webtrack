@@ -44,8 +44,6 @@ func ToNumber(data string) (float64, error) {
 	// 3: If there are any non-numerical characters left or if there are no numerical characters at all: return an error
 	var left = len(data)
 	var right = -1
-	var buffer bytes.Buffer
-	var dotFound = false
 	for i := 0; i < len(data); i++ {
 		if data[i] >= '0' && data[i] <= '9' && i < left {
 			left = i
@@ -60,6 +58,8 @@ func ToNumber(data string) (float64, error) {
 		}
 	}
 
+	var buffer bytes.Buffer
+	var dotFound = false
 	for i := left; i < right; i++ {
 		if data[i] >= '0' && data[i] <= '9' {
 			buffer.WriteByte(data[i])
@@ -69,6 +69,13 @@ func ToNumber(data string) (float64, error) {
 			}
 			dotFound = true
 			buffer.WriteByte(data[i])
+		}
+	}
+
+	var numberString = buffer.String()
+	for _, char := range numberString {
+		if !(char >= '0' || char <= '9' || char == '.') {
+			return 0, errors.New("Invalid number in the input string: " + data)
 		}
 	}
 
