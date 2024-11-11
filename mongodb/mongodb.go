@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -34,20 +35,26 @@ func NewMongoDB(uri string, databaseName string) (result MongoDB, err error) {
 	return result, err
 }
 
-func Connect(uri string) (client *mongo.Client, err error) {
-	return mongo.Connect(options.Client().ApplyURI(uri))
-}
+func (m *MongoDB) Disconnect() error {
+	if m.client == nil {
+		return errors.New("client is nil")
+	}
 
-func (m *MongoDB) Disconnect() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	if err := m.client.Disconnect(ctx); err != nil {
 		panic(err)
 	}
+
+	return nil
 }
 
 func (m *MongoDB) CreateCollection(collection string) (err error) {
+	if m.database == nil {
+		return errors.New("database is nil")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	// Ensure that we create only a missing collection
@@ -64,6 +71,10 @@ func (m *MongoDB) CreateCollection(collection string) (err error) {
 }
 
 func (m *MongoDB) Write(collection string, data bson.D) (err error) {
+	if m.database == nil {
+		return errors.New("database is nil")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	mongoCollection := m.database.Collection(collection)
@@ -73,6 +84,10 @@ func (m *MongoDB) Write(collection string, data bson.D) (err error) {
 }
 
 func (m *MongoDB) GetLastDocumentFiltered(collection string, sortedKey string, filter bson.D) (result bson.D, err error) {
+	if m.database == nil {
+		return result, errors.New("database is nil")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -96,6 +111,10 @@ func (m *MongoDB) GetLastDocument(collection string, sortedKey string) (result b
 }
 
 func (m *MongoDB) GetAllDocuments(collection string) (result []bson.D, err error) {
+	if m.database == nil {
+		return result, errors.New("database is nil")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -122,6 +141,10 @@ func (m *MongoDB) GetAllDocuments(collection string) (result []bson.D, err error
 }
 
 func (m *MongoDB) DropCollection(collection string) (err error) {
+	if m.database == nil {
+		return errors.New("database is nil")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
