@@ -34,7 +34,7 @@ jobs:
           mongodb-version: '8.0'
 
       - name: Run tests
-        run: go test
+        run: go test ./...
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
