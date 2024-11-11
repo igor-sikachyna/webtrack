@@ -114,7 +114,7 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 
 					if err == nil && onlyIfDifferentPassed && onlyIfUniquePassed {
 						var timestamp = time.Now().Unix()
-						err = mongo.Write(config.Name, bson.D{{"timestamp", timestamp}, {"value", res}})
+						err = mongo.Write(config.Name, bson.D{{Key: "timestamp", Value: timestamp}, {Key: "value", Value: res}})
 						if err != nil {
 							fmt.Printf("Failed to write to MongoDB: %v", err)
 						} else {
