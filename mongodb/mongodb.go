@@ -11,6 +11,15 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 )
 
+func BsonToRaw(value bson.D) (document bson.Raw, err error) {
+	doc, err := bson.Marshal(value)
+	if err != nil {
+		return document, err
+	}
+	err = bson.Unmarshal(doc, &document)
+	return
+}
+
 type MongoDB struct {
 	client   *mongo.Client
 	database *mongo.Database
@@ -92,7 +101,7 @@ func (m *MongoDB) GetLastDocumentFiltered(collection string, sortedKey string, f
 	defer cancel()
 
 	mongoCollection := m.database.Collection(collection)
-	count, err := mongoCollection.CountDocuments(ctx, bson.D{})
+	count, err := mongoCollection.CountDocuments(ctx, filter)
 	if err != nil || count == 0 {
 		return result, err
 	}

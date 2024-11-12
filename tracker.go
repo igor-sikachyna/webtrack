@@ -12,15 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-func bsonToRaw(value bson.D) (document bson.Raw, err error) {
-	doc, err := bson.Marshal(value)
-	if err != nil {
-		return document, err
-	}
-	err = bson.Unmarshal(doc, &document)
-	return
-}
-
 func floatToNiceString(value float64) (res string) {
 	res = fmt.Sprintf("%f", value)
 	// Trim 0s past the decimal point
@@ -52,7 +43,7 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 				log.Fatal(err)
 			}
 
-			lastDocument, err := bsonToRaw(lastDocumentBson)
+			lastDocument, err := mongodb.BsonToRaw(lastDocumentBson)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -67,7 +58,7 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 			log.Fatal(err)
 		}
 		for _, documentBson := range documentBsons {
-			document, err := bsonToRaw(documentBson)
+			document, err := mongodb.BsonToRaw(documentBson)
 			if err != nil {
 				log.Fatal(err)
 			}
