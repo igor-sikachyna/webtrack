@@ -92,6 +92,8 @@ func ReadIni[T Configurable](path string) (result T) {
 			setStringKey(result, fieldName, reflect.Indirect(configReflection).Field(i), cfg)
 		case "int":
 			setIntKey(result, fieldName, reflect.Indirect(configReflection).Field(i), cfg)
+		case "int64":
+			setIntKey(result, fieldName, reflect.Indirect(configReflection).Field(i), cfg)
 		case "bool":
 			setBoolKey(result, fieldName, reflect.Indirect(configReflection).Field(i), cfg)
 		default:

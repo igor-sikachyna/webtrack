@@ -28,8 +28,13 @@ jobs:
       - name: Display Go version
         run: go version
 
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@1.11.0
+        with:
+          mongodb-version: '8.0'
+
       - name: Run tests
-        run: go test
+        run: go test ./...
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

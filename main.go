@@ -22,7 +22,7 @@ func main() {
 	defer mongo.Disconnect()
 
 	// Create the default versions collection
-	err = mongo.CreateCollection("versions")
+	err = mongo.CreateCollection(config.VersionCollectionName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func main() {
 	var dir = "./queries"
 	var stopRequest = make(chan any)
 	var stopResponse = make(chan any)
-	err = StartTrackers(ListIniFiles(dir), mongo, stopRequest, stopResponse)
+	err = StartTrackers(ListIniFiles(dir), config, mongo, stopRequest, stopResponse)
 	if err != nil {
 		log.Fatal(err)
 	}

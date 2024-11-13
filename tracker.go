@@ -12,15 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-func bsonToRaw(value bson.D) (document bson.Raw, err error) {
-	doc, err := bson.Marshal(value)
-	if err != nil {
-		return document, err
-	}
-	err = bson.Unmarshal(doc, &document)
-	return
-}
-
 func floatToNiceString(value float64) (res string) {
 	res = fmt.Sprintf("%f", value)
 	// Trim 0s past the decimal point
@@ -52,7 +43,7 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 				log.Fatal(err)
 			}
 
-			lastDocument, err := bsonToRaw(lastDocumentBson)
+			lastDocument, err := mongodb.BsonToRaw(lastDocumentBson)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -67,7 +58,7 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 			log.Fatal(err)
 		}
 		for _, documentBson := range documentBsons {
-			document, err := bsonToRaw(documentBson)
+			document, err := mongodb.BsonToRaw(documentBson)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -114,7 +105,7 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 
 					if err == nil && onlyIfDifferentPassed && onlyIfUniquePassed {
 						var timestamp = time.Now().Unix()
-						err = mongo.Write(config.Name, bson.D{{"timestamp", timestamp}, {"value", res}})
+						err = mongo.Write(config.Name, bson.D{{Key: "timestamp", Value: timestamp}, {Key: "value", Value: res}, {Key: "version", Value: config.Version}})
 						if err != nil {
 							fmt.Printf("Failed to write to MongoDB: %v", err)
 						} else {
@@ -138,23 +129,87 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 	}
 }
 
-func StartTrackers(configs []string, mongo mongodb.MongoDB, stopRequest chan any, stopResponse chan any) (err error) {
+func writeQueryVersion(mongo mongodb.MongoDB, globalConfig Config, queryName string, queryHash string, version int64) error {
+	return mongo.Write(globalConfig.VersionCollectionName, bson.D{{Key: "version", Value: version}, {Key: "name", Value: queryName}, {Key: "hash", Value: queryHash}})
+}
+
+func checkQueryVersion(mongo mongodb.MongoDB, globalConfig Config, queryName string, configPath string) (int64, error) {
+	document, err := mongo.GetLastDocumentFiltered(globalConfig.VersionCollectionName, "version", bson.D{{Key: "name", Value: queryName}})
+	if err != nil {
+		return 0, err
+	}
+
+	queryHash, err := GetFileHash(configPath)
+	if err != nil {
+		return 0, err
+	}
+	fmt.Println(queryName)
+	fmt.Println(queryHash)
+
+	// Document exists and we potentially need to increment the version
+	if len(document) > 0 {
+		rawDocument, err := mongodb.BsonToRaw(document)
+		if err != nil {
+			return 0, err
+		}
+		var hash = rawDocument.Lookup("hash").StringValue()
+		var version, ok = rawDocument.Lookup("version").AsInt64OK()
+		if !ok {
+			return 0, errors.New("failed to read version number from MongoDB")
+		}
+		if hash != queryHash {
+			// Check if some older query version is used
+			oldVersionDocument, err := mongo.GetLastDocumentFiltered(globalConfig.VersionCollectionName, "version", bson.D{{Key: "name", Value: queryName}, {Key: "hash", Value: queryHash}})
+			if err != nil {
+				return 0, err
+			}
+
+			if len(oldVersionDocument) > 0 {
+				// Found a matching old version
+				rawDocument, err := mongodb.BsonToRaw(oldVersionDocument)
+				if err != nil {
+					return 0, err
+				}
+				version, ok = rawDocument.Lookup("version").AsInt64OK()
+				if !ok {
+					return 0, errors.New("failed to read version number from MongoDB")
+				}
+				return version, nil
+			} else {
+				// It is a new query which requires a version increment
+				version++
+				return version, writeQueryVersion(mongo, globalConfig, queryName, queryHash, version)
+			}
+		}
+		// If the hash matches then no action is required, simply return the latest version
+		return version, nil
+	} else {
+		// It is a new query without a version entry
+		return 0, writeQueryVersion(mongo, globalConfig, queryName, queryHash, 0)
+	}
+}
+
+func StartTrackers(queries []string, globalConfig Config, mongo mongodb.MongoDB, stopRequest chan any, stopResponse chan any) (err error) {
 	// Reserve the "versions" name since it is used for query versioning
-	for _, configPath := range configs {
+	for _, configPath := range queries {
 		var fileName = GetFileNameWithoutExtension(configPath)
-		if fileName == "versions" {
-			return errors.New("versions name is reserved")
+		if fileName == globalConfig.VersionCollectionName {
+			return errors.New("version collection name is reserved")
 		}
 	}
 
 	go func() {
 		var stopChannels = []chan any{}
-		for _, configPath := range configs {
+		for _, configPath := range queries {
 			var threadStopResponse = make(chan any)
 			stopChannels = append(stopChannels, threadStopResponse)
 			var config = autoini.ReadIni[QueryConfig](configPath)
 			config.Name = GetFileNameWithoutExtension(configPath)
 			var err = mongo.CreateCollection(config.Name)
+			if err != nil {
+				log.Fatal(err)
+			}
+			config.Version, err = checkQueryVersion(mongo, globalConfig, config.Name, configPath)
 			if err != nil {
 				log.Fatal(err)
 			}

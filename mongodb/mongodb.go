@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -9,6 +10,15 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 )
+
+func BsonToRaw(value bson.D) (document bson.Raw, err error) {
+	doc, err := bson.Marshal(value)
+	if err != nil {
+		return document, err
+	}
+	err = bson.Unmarshal(doc, &document)
+	return
+}
 
 type MongoDB struct {
 	client   *mongo.Client
@@ -34,24 +44,30 @@ func NewMongoDB(uri string, databaseName string) (result MongoDB, err error) {
 	return result, err
 }
 
-func Connect(uri string) (client *mongo.Client, err error) {
-	return mongo.Connect(options.Client().ApplyURI(uri))
-}
+func (m *MongoDB) Disconnect() error {
+	if m.client == nil {
+		return errors.New("client is nil")
+	}
 
-func (m *MongoDB) Disconnect() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	if err := m.client.Disconnect(ctx); err != nil {
 		panic(err)
 	}
+
+	return nil
 }
 
 func (m *MongoDB) CreateCollection(collection string) (err error) {
+	if m.database == nil {
+		return errors.New("database is nil")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	// Ensure that we create only missing collection
-	names, err := m.database.ListCollectionNames(ctx, bson.D{{"name", collection}})
+	// Ensure that we create only a missing collection
+	names, err := m.database.ListCollectionNames(ctx, bson.D{{Key: "name", Value: collection}})
 	if err != nil {
 		return err
 	}
@@ -64,6 +80,10 @@ func (m *MongoDB) CreateCollection(collection string) (err error) {
 }
 
 func (m *MongoDB) Write(collection string, data bson.D) (err error) {
+	if m.database == nil {
+		return errors.New("database is nil")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	mongoCollection := m.database.Collection(collection)
@@ -72,18 +92,23 @@ func (m *MongoDB) Write(collection string, data bson.D) (err error) {
 	return err
 }
 
-func (m *MongoDB) GetLastDocument(collection string, sortedKey string) (result bson.D, err error) {
+func (m *MongoDB) GetLastDocumentFiltered(collection string, sortedKey string, filter bson.D) (result bson.D, err error) {
+	if m.database == nil {
+		return result, errors.New("database is nil")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	mongoCollection := m.database.Collection(collection)
-	count, err := mongoCollection.CountDocuments(ctx, bson.D{})
+	count, err := mongoCollection.CountDocuments(ctx, filter)
 	if err != nil || count == 0 {
 		return result, err
 	}
-	opts := options.FindOne().SetSort(bson.D{{sortedKey, 1}}).SetSkip(count - 1)
+	opts := options.FindOne().SetSort(bson.D{{Key: sortedKey, Value: 1}}).SetSkip(count - 1)
 
-	err = mongoCollection.FindOne(ctx, bson.D{}, opts).Decode(&result)
+	// TODO: Return un-decoded result
+	err = mongoCollection.FindOne(ctx, filter, opts).Decode(&result)
 	if err != nil {
 		return result, err
 	}
@@ -91,7 +116,15 @@ func (m *MongoDB) GetLastDocument(collection string, sortedKey string) (result b
 	return
 }
 
+func (m *MongoDB) GetLastDocument(collection string, sortedKey string) (result bson.D, err error) {
+	return m.GetLastDocumentFiltered(collection, sortedKey, bson.D{})
+}
+
 func (m *MongoDB) GetAllDocuments(collection string) (result []bson.D, err error) {
+	if m.database == nil {
+		return result, errors.New("database is nil")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -114,5 +147,18 @@ func (m *MongoDB) GetAllDocuments(collection string) (result []bson.D, err error
 		return result, err
 	}
 
+	return
+}
+
+func (m *MongoDB) DropCollection(collection string) (err error) {
+	if m.database == nil {
+		return errors.New("database is nil")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	mongoCollection := m.database.Collection(collection)
+	err = mongoCollection.Drop(ctx)
 	return
 }
