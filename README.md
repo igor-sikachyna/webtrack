@@ -7,7 +7,7 @@ Application written in Go to collect the information from webpages or API endpoi
 ## Prerequisites
 
 - Tested with Go 1.23.2
-- [MongoDB](https://www.mongodb.com/docs/manual/administration/install-community/)
+- [MongoDB 8.0](https://www.mongodb.com/docs/manual/administration/install-community/)
 
 ## Installation
 

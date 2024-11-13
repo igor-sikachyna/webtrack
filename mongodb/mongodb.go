@@ -107,6 +107,7 @@ func (m *MongoDB) GetLastDocumentFiltered(collection string, sortedKey string, f
 	}
 	opts := options.FindOne().SetSort(bson.D{{Key: sortedKey, Value: 1}}).SetSkip(count - 1)
 
+	// TODO: Return un-decoded result
 	err = mongoCollection.FindOne(ctx, filter, opts).Decode(&result)
 	if err != nil {
 		return result, err

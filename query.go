@@ -3,7 +3,8 @@ package main
 import "log"
 
 type QueryConfig struct {
-	Name                   string
+	Name                   string // Internal only
+	Version                int64  // Internal only
 	Url                    string
 	AnyTag                 string
 	Before                 string
@@ -18,6 +19,8 @@ type QueryConfig struct {
 func (q QueryConfig) Optional(key string) bool {
 	switch key {
 	case "Name":
+		return true
+	case "Version":
 		return true
 	case "Url":
 		return false
