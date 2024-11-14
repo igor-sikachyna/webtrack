@@ -93,8 +93,9 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 
 					// Respect the OnlyIfDifferent and OnlyIfUnique requirement
 					var onlyIfDifferentPassed = (!config.OnlyIfDifferent || lastValue != res)
-					var onlyIfUniquePassed = true
-					if config.OnlyIfUnique {
+					// Small optimization: if the last record is the same as the current, then it is not necessary to search in MongoDB
+					var onlyIfUniquePassed = onlyIfDifferentPassed
+					if onlyIfUniquePassed && config.OnlyIfUnique {
 						onlyIfUniquePassed = false
 						existingDocument, err := mongo.GetLastDocumentFiltered(config.Name, "timestamp", bson.D{{Key: "value", Value: res}, {Key: "version", Value: config.Version}})
 						if err != nil {
