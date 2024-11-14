@@ -12,6 +12,18 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
+type TrackedRecord struct {
+	Timestamp int64
+	Value     string
+	Version   int64
+}
+
+type VersionRecord struct {
+	Name    string
+	Version int64
+	Hash    string
+}
+
 func floatToNiceString(value float64) (res string) {
 	res = fmt.Sprintf("%f", value)
 	// Trim 0s past the decimal point
@@ -35,35 +47,19 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 	defer close(threadStopResponse)
 
 	var lastValue = ""
-	var allValues = map[string]struct{}{}
 	if config.OnlyIfDifferent {
-		var lastDocumentBson, err = mongo.GetLastDocument(config.Name, "timestamp")
-		if lastDocumentBson != nil {
+		var lastDocument, err = mongo.GetLastDocument(config.Name, "timestamp")
+		if lastDocument != nil {
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			lastDocument, err := mongodb.BsonToRaw(lastDocumentBson)
+			var decoded TrackedRecord
+			err = lastDocument.Decode(&decoded)
 			if err != nil {
 				log.Fatal(err)
 			}
-			lastValue = lastDocument.Lookup("value").StringValue()
-		}
-	}
-
-	// TODO: Use MongoDB to check for uniqueness
-	if config.OnlyIfUnique {
-		var documentBsons, err = mongo.GetAllDocuments(config.Name)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, documentBson := range documentBsons {
-			document, err := mongodb.BsonToRaw(documentBson)
-			if err != nil {
-				log.Fatal(err)
-			}
-			var value = document.Lookup("value").StringValue()
-			allValues[value] = struct{}{}
+			lastValue = decoded.Value
 		}
 	}
 
@@ -99,8 +95,13 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 					var onlyIfDifferentPassed = (!config.OnlyIfDifferent || lastValue != res)
 					var onlyIfUniquePassed = true
 					if config.OnlyIfUnique {
-						_, seen := allValues[res]
-						onlyIfUniquePassed = !seen
+						onlyIfUniquePassed = false
+						existingDocument, err := mongo.GetLastDocumentFiltered(config.Name, "timestamp", bson.D{{Key: "value", Value: res}, {Key: "version", Value: config.Version}})
+						if err != nil {
+							fmt.Printf("Failed the search for an existing record in MongoDB: %v", err)
+						} else if existingDocument != nil {
+							onlyIfUniquePassed = true
+						}
 					}
 
 					if err == nil && onlyIfDifferentPassed && onlyIfUniquePassed {
@@ -111,10 +112,6 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 						} else {
 							fmt.Printf("Wrote to MongoDB collection %v at %v\n", config.Name, timestamp)
 							lastValue = res
-
-							if config.OnlyIfUnique {
-								allValues[res] = struct{}{}
-							}
 						}
 					}
 				}
@@ -130,7 +127,7 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 }
 
 func writeQueryVersion(mongo mongodb.MongoDB, globalConfig Config, queryName string, queryHash string, version int64) error {
-	return mongo.Write(globalConfig.VersionCollectionName, bson.D{{Key: "version", Value: version}, {Key: "name", Value: queryName}, {Key: "hash", Value: queryHash}})
+	return mongo.Write(globalConfig.VersionCollectionName, bson.D{{Key: "name", Value: queryName}, {Key: "version", Value: version}, {Key: "hash", Value: queryHash}})
 }
 
 func checkQueryVersion(mongo mongodb.MongoDB, globalConfig Config, queryName string, configPath string) (int64, error) {
@@ -143,46 +140,38 @@ func checkQueryVersion(mongo mongodb.MongoDB, globalConfig Config, queryName str
 	if err != nil {
 		return 0, err
 	}
-	fmt.Println(queryName)
-	fmt.Println(queryHash)
 
 	// Document exists and we potentially need to increment the version
-	if len(document) > 0 {
-		rawDocument, err := mongodb.BsonToRaw(document)
+	if document != nil {
+		var decoded VersionRecord
+		err = document.Decode(&decoded)
 		if err != nil {
 			return 0, err
 		}
-		var hash = rawDocument.Lookup("hash").StringValue()
-		var version, ok = rawDocument.Lookup("version").AsInt64OK()
-		if !ok {
-			return 0, errors.New("failed to read version number from MongoDB")
-		}
-		if hash != queryHash {
+
+		if decoded.Hash != queryHash {
 			// Check if some older query version is used
 			oldVersionDocument, err := mongo.GetLastDocumentFiltered(globalConfig.VersionCollectionName, "version", bson.D{{Key: "name", Value: queryName}, {Key: "hash", Value: queryHash}})
 			if err != nil {
 				return 0, err
 			}
 
-			if len(oldVersionDocument) > 0 {
+			if oldVersionDocument != nil {
 				// Found a matching old version
-				rawDocument, err := mongodb.BsonToRaw(oldVersionDocument)
+				var decoded VersionRecord
+				err = oldVersionDocument.Decode(&decoded)
 				if err != nil {
 					return 0, err
 				}
-				version, ok = rawDocument.Lookup("version").AsInt64OK()
-				if !ok {
-					return 0, errors.New("failed to read version number from MongoDB")
-				}
-				return version, nil
+				return decoded.Version, nil
 			} else {
 				// It is a new query which requires a version increment
-				version++
-				return version, writeQueryVersion(mongo, globalConfig, queryName, queryHash, version)
+				decoded.Version++
+				return decoded.Version, writeQueryVersion(mongo, globalConfig, queryName, queryHash, decoded.Version)
 			}
 		}
 		// If the hash matches then no action is required, simply return the latest version
-		return version, nil
+		return decoded.Version, nil
 	} else {
 		// It is a new query without a version entry
 		return 0, writeQueryVersion(mongo, globalConfig, queryName, queryHash, 0)

@@ -92,7 +92,7 @@ func (m *MongoDB) Write(collection string, data bson.D) (err error) {
 	return err
 }
 
-func (m *MongoDB) GetLastDocumentFiltered(collection string, sortedKey string, filter bson.D) (result bson.D, err error) {
+func (m *MongoDB) GetLastDocumentFiltered(collection string, sortedKey string, filter bson.D) (result *mongo.SingleResult, err error) {
 	if m.database == nil {
 		return result, errors.New("database is nil")
 	}
@@ -108,15 +108,15 @@ func (m *MongoDB) GetLastDocumentFiltered(collection string, sortedKey string, f
 	opts := options.FindOne().SetSort(bson.D{{Key: sortedKey, Value: 1}}).SetSkip(count - 1)
 
 	// TODO: Return un-decoded result
-	err = mongoCollection.FindOne(ctx, filter, opts).Decode(&result)
-	if err != nil {
-		return result, err
+	result = mongoCollection.FindOne(ctx, filter, opts)
+	if result.Err() != nil {
+		return result, result.Err()
 	}
 
 	return
 }
 
-func (m *MongoDB) GetLastDocument(collection string, sortedKey string) (result bson.D, err error) {
+func (m *MongoDB) GetLastDocument(collection string, sortedKey string) (result *mongo.SingleResult, err error) {
 	return m.GetLastDocumentFiltered(collection, sortedKey, bson.D{})
 }
 
