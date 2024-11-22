@@ -3,6 +3,7 @@ package autoini
 import (
 	"errors"
 	"reflect"
+	"unicode"
 
 	"gopkg.in/ini.v1"
 )
@@ -30,6 +31,8 @@ type ImplementsPostInit interface {
 	PostInit() (err error)
 }
 
+type implementationChecker interface{}
+
 func isOptional[T Configurable](result T, key string) bool {
 	if def, ok := any(result).(ImplementsOptional); ok {
 		return def.Optional(key)
@@ -49,60 +52,69 @@ func getKey(key string, optional bool, cfg *ini.File) (valueInConfig *ini.Key, e
 	return
 }
 
-func setStringKey[T Configurable](result T, key string, value reflect.Value, cfg *ini.File) (err error) {
+type Setter func(value reflect.Value, valueInConfig *ini.Key) (err error)
+
+func setGenericKey[T Configurable, Implementation implementationChecker](result T, key string, value reflect.Value, cfg *ini.File, setter Setter, defaultHandler func(def Implementation, key string, value reflect.Value) (err error)) (err error) {
 	valueInConfig, err := getKey(key, isOptional(result, key), cfg)
 	if err != nil {
 		return err
 	}
 
 	if valueInConfig != nil {
-		value.SetString(valueInConfig.String())
-	} else if def, ok := any(result).(ImplementsDefaultString); ok {
-		value.SetString(def.DefaultString(key))
+		err = setter(value, valueInConfig)
+	} else if def, ok := any(result).(Implementation); ok {
+		err = defaultHandler(def, key, value)
 	} else {
 		return errors.New("did not find a value or default value for key: " + key)
 	}
 	return
+}
+
+func setStringKey[T Configurable](result T, key string, value reflect.Value, cfg *ini.File) (err error) {
+	return setGenericKey(result, key, value, cfg,
+		func(value reflect.Value, valueInConfig *ini.Key) (err error) {
+			value.SetString(valueInConfig.String())
+			return
+		},
+		func(def ImplementsDefaultString, key string, value reflect.Value) (err error) {
+			value.SetString(def.DefaultString(key))
+			return
+		},
+	)
 }
 
 func setIntKey[T Configurable](result T, key string, value reflect.Value, cfg *ini.File) (err error) {
-	valueInConfig, err := getKey(key, isOptional(result, key), cfg)
-	if err != nil {
-		return err
-	}
-
-	if valueInConfig != nil {
-		val, err := valueInConfig.Int64()
-		if err != nil {
-			return errors.New("config file key " + key + " is not an int")
-		}
-		value.SetInt(val)
-	} else if def, ok := any(result).(ImplementsDefaultInt); ok {
-		value.SetInt(int64(def.DefaultInt(key)))
-	} else {
-		return errors.New("did not find a value or default value for key: " + key)
-	}
-	return
+	return setGenericKey(result, key, value, cfg,
+		func(value reflect.Value, valueInConfig *ini.Key) (err error) {
+			val, err := valueInConfig.Int64()
+			if err != nil {
+				return errors.New("config file key " + key + " is not an int")
+			}
+			value.SetInt(val)
+			return
+		},
+		func(def ImplementsDefaultInt, key string, value reflect.Value) (err error) {
+			value.SetInt(int64(def.DefaultInt(key)))
+			return
+		},
+	)
 }
 
 func setBoolKey[T Configurable](result T, key string, value reflect.Value, cfg *ini.File) (err error) {
-	valueInConfig, err := getKey(key, isOptional(result, key), cfg)
-	if err != nil {
-		return err
-	}
-
-	if valueInConfig != nil {
-		val, err := valueInConfig.Bool()
-		if err != nil {
-			return errors.New("config file key " + key + " is not a bool")
-		}
-		value.SetBool(val)
-	} else if def, ok := any(result).(ImplementsDefaultBool); ok {
-		value.SetBool(def.DefaultBool(key))
-	} else {
-		return errors.New("did not find a value or default value for key: " + key)
-	}
-	return
+	return setGenericKey(result, key, value, cfg,
+		func(value reflect.Value, valueInConfig *ini.Key) (err error) {
+			val, err := valueInConfig.Bool()
+			if err != nil {
+				return errors.New("config file key " + key + " is not a bool")
+			}
+			value.SetBool(val)
+			return
+		},
+		func(def ImplementsDefaultBool, key string, value reflect.Value) (err error) {
+			value.SetBool(def.DefaultBool(key))
+			return
+		},
+	)
 }
 
 func ReadIni[T Configurable](path string) (result T, err error) {
@@ -115,8 +127,12 @@ func ReadIni[T Configurable](path string) (result T, err error) {
 	typeOfConfig := reflect.Indirect(configReflection).Type()
 
 	for i := 0; i < reflect.Indirect(configReflection).NumField(); i++ {
-		var configValueType = reflect.ValueOf(reflect.Indirect(configReflection).Field(i).Interface()).Type()
 		var fieldName = typeOfConfig.Field(i).Name
+		if len(fieldName) == 0 || !unicode.IsUpper(rune(fieldName[0])) {
+			return result, errors.New("field does not exist or is not exported: " + fieldName)
+		}
+		var configValueType = reflect.ValueOf(reflect.Indirect(configReflection).Field(i).Interface()).Type()
+
 		switch configValueType.Name() {
 		case "string":
 			err = setStringKey(result, fieldName, reflect.Indirect(configReflection).Field(i), cfg)
