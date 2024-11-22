@@ -193,9 +193,12 @@ func StartTrackers(queries []string, globalConfig Config, mongo mongodb.MongoDB,
 		for _, configPath := range queries {
 			var threadStopResponse = make(chan any)
 			stopChannels = append(stopChannels, threadStopResponse)
-			var config = autoini.ReadIni[QueryConfig](configPath)
+			var config, err = autoini.ReadIni[QueryConfig](configPath)
+			if err != nil {
+				log.Fatal(err)
+			}
 			config.Name = GetFileNameWithoutExtension(configPath)
-			var err = mongo.CreateCollection(config.Name)
+			err = mongo.CreateCollection(config.Name)
 			if err != nil {
 				log.Fatal(err)
 			}

@@ -12,8 +12,10 @@ import (
 )
 
 func main() {
-	var config = autoini.ReadIni[Config]("config.ini")
-	fmt.Println(config)
+	var config, err = autoini.ReadIni[Config]("config.ini")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	mongo, err := mongodb.NewMongoDB(config.MongodbConnectionUrl, config.DatabaseName)
 	if err != nil {

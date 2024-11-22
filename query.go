@@ -1,6 +1,8 @@
 package main
 
-import "log"
+import (
+	"errors"
+)
 
 type QueryConfig struct {
 	Name                   string // Internal only
@@ -71,11 +73,12 @@ func (q QueryConfig) DefaultBool(key string) bool {
 	return false
 }
 
-func (q *QueryConfig) PostInit() {
+func (q *QueryConfig) PostInit() (err error) {
 	if q.ResultType != "string" && q.ResultType != "number" {
-		log.Fatalf("Invalid result type %v. Only \"string\" and \"number\" result types are supported", q.ResultType)
+		return errors.New("Invalid result type " + q.ResultType + ". Only \"string\" and \"number\" result types are supported")
 	}
 	if q.RequestBackend != "chrome" && q.RequestBackend != "go" {
-		log.Fatalf("Invalid request backend %v. Only \"chrome\" and \"go\" request backends are supported", q.RequestBackend)
+		return errors.New("Invalid request backend " + q.RequestBackend + ". Only \"chrome\" and \"go\" request backends are supported")
 	}
+	return
 }
