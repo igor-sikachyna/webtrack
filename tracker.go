@@ -100,7 +100,7 @@ func trackerThread(config QueryConfig, mongo mongodb.MongoDB, stopRequest chan a
 						existingDocument, err := mongo.GetLastDocumentFiltered(config.Name, "timestamp", bson.D{{Key: "value", Value: res}, {Key: "version", Value: config.Version}})
 						if err != nil {
 							fmt.Printf("Failed the search for an existing record in MongoDB: %v", err)
-						} else if existingDocument != nil {
+						} else if existingDocument == nil {
 							onlyIfUniquePassed = true
 						}
 					}
