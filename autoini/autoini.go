@@ -53,8 +53,9 @@ func getKey(key string, optional bool, cfg *ini.File) (valueInConfig *ini.Key, e
 }
 
 type Setter func(value reflect.Value, valueInConfig *ini.Key) (err error)
+type DefaultHandler[Implementation implementationChecker] func(def Implementation, key string, value reflect.Value) (err error)
 
-func setGenericKey[T Configurable, Implementation implementationChecker](result T, key string, value reflect.Value, cfg *ini.File, setter Setter, defaultHandler func(def Implementation, key string, value reflect.Value) (err error)) (err error) {
+func setGenericKey[T Configurable, Implementation implementationChecker](result T, key string, value reflect.Value, cfg *ini.File, setter Setter, defaultHandler DefaultHandler[Implementation]) (err error) {
 	valueInConfig, err := getKey(key, isOptional(result, key), cfg)
 	if err != nil {
 		return err
