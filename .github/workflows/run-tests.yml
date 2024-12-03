@@ -35,10 +35,11 @@ jobs:
 
       - name: Run Test
         run: |
-          go test -v ./... -covermode=count -coverprofile=coverage.out
-          go tool cover -func=coverage.out -o=coverage.out
+          go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
 
-      - name: Go Coverage Badge
-        uses: tj-actions/coverage-badge-go@v2
+      - name: Check test coverage
+        uses: vladopajic/go-test-coverage@v2
         with:
-          filename: coverage.out
+          profile: cover.out
+          git-token: ${{ github.ref_name == 'feature/test-coverage' && secrets.GITHUB_TOKEN || '' }}
+          git-branch: badges
