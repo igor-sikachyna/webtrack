@@ -33,6 +33,9 @@ jobs:
         with:
           mongodb-version: '8.0'
 
+      - name: Print env
+        run: echo ${{ github.ref_name }}
+
       - name: Run Test
         run: |
           go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
@@ -41,5 +44,5 @@ jobs:
         uses: vladopajic/go-test-coverage@v2
         with:
           profile: cover.out
-          git-token: ${{ github.ref_name == 'feature/test-coverage' && secrets.GITHUB_TOKEN || '' }}
+          git-token: ${{ secrets.GITHUB_TOKEN }}
           git-branch: badges
