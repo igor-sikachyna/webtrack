@@ -33,5 +33,14 @@ jobs:
         with:
           mongodb-version: '8.0'
 
-      - name: Run tests
-        run: go test ./...
+      - name: Run Test
+        run: |
+          go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
+
+      - name: Check test coverage
+        uses: vladopajic/go-test-coverage@v2
+        with:
+          profile: cover.out
+          git-token: ${{ secrets.GITHUB_TOKEN }}
+          git-branch: badges
+          git-file-name: .badges/${{ github.head_ref || github.ref_name }}/coverage.svg
