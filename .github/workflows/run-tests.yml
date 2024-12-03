@@ -34,7 +34,9 @@ jobs:
           mongodb-version: '8.0'
 
       - name: Print env
-        run: echo ${{ github.ref_name }}
+        run: |
+          echo ${{ github.ref_name }}
+          echo ${{ github.head_ref }}
 
       - name: Run Test
         run: |
@@ -46,3 +48,4 @@ jobs:
           profile: cover.out
           git-token: ${{ secrets.GITHUB_TOKEN }}
           git-branch: badges
+          git-file-name: .badges/${{ github.head_ref || github.ref_name }}/coverage.svg
