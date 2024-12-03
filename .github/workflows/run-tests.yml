@@ -33,11 +33,6 @@ jobs:
         with:
           mongodb-version: '8.0'
 
-      - name: Print env
-        run: |
-          echo ${{ github.ref_name }}
-          echo ${{ github.head_ref }}
-
       - name: Run Test
         run: |
           go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
