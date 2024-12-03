@@ -1,6 +1,6 @@
 # webtrack - Real-time webpage value tracker in Go
 
-![tests](https://github.com/igor-sikachyna/webtrack/actions/workflows/run-tests.yml/badge.svg) ![build](https://github.com/igor-sikachyna/webtrack/actions/workflows/create-release.yml/badge.svg)
+![tests](https://github.com/igor-sikachyna/webtrack/actions/workflows/run-tests.yml/badge.svg) ![build](https://github.com/igor-sikachyna/webtrack/actions/workflows/create-release.yml/badge.svg) [![coverage](https://img.shields.io/badge/Coverage-100.0%25-brightgreen)](https://github.com/igor-sikachyna/webtrack/actions/workflows/run-tests.yml)
 
 Application written in Go to collect the information from webpages or API endpoints and to store it in MongoDB
 
